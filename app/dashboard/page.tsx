@@ -108,7 +108,7 @@ export default function DashboardPage() {
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
                     <div>
-                        <p className="text-slate-400 text-sm">Bentornat*,</p>
+                        <p className="mt-2 text-sm text-gray-400">Tieni d&apos;occhio i tuoi progressi</p>
                         <h1 className="text-2xl font-black text-white">{userData.nome} 👋</h1>
                     </div>
                     <div className="glass px-4 py-2 rounded-xl flex items-center gap-2">
@@ -156,10 +156,10 @@ export default function DashboardPage() {
                         onClick={handleCheckIn}
                         disabled={checkedIn || gpsStatus === "checking"}
                         className={`gaming-btn w-full py-3 rounded-xl font-bold transition-all duration-300 ${checkedIn
-                                ? "bg-emerald-600/30 text-emerald-400 cursor-not-allowed"
-                                : gpsStatus === "far"
-                                    ? "bg-red-600/30 text-red-400"
-                                    : "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/30"
+                            ? "bg-emerald-600/30 text-emerald-400 cursor-not-allowed"
+                            : gpsStatus === "far"
+                                ? "bg-red-600/30 text-red-400"
+                                : "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/30"
                             }`}
                     >
                         {gpsStatus === "checking" ? (

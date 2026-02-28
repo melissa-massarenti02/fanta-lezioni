@@ -16,7 +16,6 @@ interface LeaderboardEntry {
 }
 
 const trophyColors = ["text-yellow-400", "text-slate-300", "text-amber-600"];
-const trophyIcons = [Trophy, Trophy, Trophy];
 
 export default function LeaderboardPage() {
     const { user, loading } = useAuth();

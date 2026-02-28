@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from "@/lib/AuthContext";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
@@ -193,6 +193,7 @@ export default function TimerPage() {
                 <div className="w-full glass rounded-2xl p-4 grid grid-cols-2 gap-3">
                     {[
                         { label: "Sessione completata", value: "+1", color: "text-emerald-400" },
+                        { label: "Se non fermi il timer o non finisci la sessione correttamente la sessione andrà persa.", value: "0", color: "text-slate-400" },
                         { label: "Distrazione/Tab switch", value: "-1", color: "text-red-400" },
                         { label: "Focus (25 min)", value: "🍅", color: "text-orange-400" },
                         { label: "Focus Lungo (50 min)", value: "🍅🍅", color: "text-orange-400" },
