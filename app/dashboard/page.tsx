@@ -79,20 +79,19 @@ export default function DashboardPage() {
   };
 
   // Funzione centralizzata per l'aggiornamento punti e blocco duplicati
-  const finalizeCheckIn = async (attendanceRef: any) => {
+  const finalizeCheckIn = async (attendanceRef: any, currentExamId: string) => {
     if (user) {
-      // 1. Registra la presenza per bloccare accessi multipli
       await setDoc(attendanceRef, {
         uid: user.uid,
         timestamp: new Date(),
         metodo: isStreaming ? "streaming" : "gps",
       });
 
-      // 2. Calcola i punti (logica Boss Exam inclusa in updatePoints)
+      // Passiamo l'id dell'esame trovato, non quello del boss
       const pts = await updatePoints(
         user.uid,
         "lezione",
-        bossExam ?? undefined,
+        currentExamId, // <--- Importante per il calcolo raddoppio
       );
 
       setMsg(`✅ Check-in completato! +${pts} punti`);
@@ -102,42 +101,42 @@ export default function DashboardPage() {
     }
   };
 
+  // Sostituisci handleCheckIn con questa versione "Multi-Esame"
   const handleCheckIn = async () => {
     setGpsStatus("checking");
 
-    const currentExam = exams.find((e) => e.id === bossExam);
-    if (!currentExam || !currentExam.calendario) {
-      setMsg("❌ Configura il calendario per l'esame Boss");
-      setGpsStatus("idle");
-      return;
-    }
-
-    // Recupero sessioni odierne (es. lunedì=1, martedì=2...)
     const dayOfWeek = new Date().getDay();
-    const sessioniOggi = currentExam.calendario[dayOfWeek];
+    let activeSession: { exam: Exam; time: string } | null = null;
 
-    if (!sessioniOggi || sessioniOggi.length === 0) {
-      setMsg("❌ Nessuna lezione o laboratorio oggi");
+    // 1. Cerchiamo la lezione tra TUTTI gli esami in cui l'utente è iscritto
+    for (const examId of userData?.lista_esami_iscritti || []) {
+      const exam = exams.find((e) => e.id === examId);
+      if (!exam) continue;
+      const sessioniOggi = exam?.calendario?.[dayOfWeek];
+
+      if (Array.isArray(sessioniOggi)) {
+        const timeFound = sessioniOggi.find((ora) => isWithinTimeWindow(ora));
+        if (timeFound) {
+          activeSession = { exam, time: timeFound };
+          break; // Trovata la lezione attiva, usciamo dal loop
+        }
+      }
+    }
+
+    // 2. Errore se non ci sono lezioni attive in questo momento
+    if (!activeSession) {
+      setMsg("❌ Nessuna delle tue lezioni è attiva o fuori tempo massimo");
       setGpsStatus("idle");
       return;
     }
 
-    // Verifica se siamo in una finestra di 10 minuti valida
-    const sessioneAttiva = sessioniOggi.find((ora) => isWithinTimeWindow(ora));
-
-    if (!sessioneAttiva) {
-      setMsg("❌ Check-in disponibile solo nei primi 10 min della lezione");
-      setGpsStatus("idle");
-      return;
-    }
-
-    // Anti-Duplicato: Crea ID unico per Giorno + Sessione
+    // 3. Prepariamo il check-in per l'esame individuato
     const todayStr = new Date().toISOString().split("T")[0];
-    const sessionID = sessioneAttiva.replace(":", "");
+    const sessionID = activeSession.time.replace(":", "");
     const attendanceRef = doc(
       db,
       "exams",
-      currentExam.id,
+      activeSession.exam.id, // ID dell'esame della lezione reale
       "presenze",
       `${user?.uid}_${todayStr}_${sessionID}`,
     );
@@ -150,9 +149,9 @@ export default function DashboardPage() {
       return;
     }
 
-    // Logica Geofencing (650m) o Streaming
+    // 4. Logica Geofencing o Streaming
     if (isStreaming) {
-      await finalizeCheckIn(attendanceRef);
+      await finalizeCheckIn(attendanceRef, activeSession.exam.id);
     } else {
       if (!navigator.geolocation) {
         setGpsStatus("error");
@@ -163,8 +162,9 @@ export default function DashboardPage() {
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
           const { latitude, longitude } = pos.coords;
-          const targetLat = currentExam.coordinate_aula?.lat || 45.0628;
-          const targetLng = currentExam.coordinate_aula?.lng || 7.662;
+          // Usiamo le coordinate dell'esame trovato, non del boss
+          const targetLat = activeSession!.exam.coordinate_aula?.lat || 45.0628;
+          const targetLng = activeSession!.exam.coordinate_aula?.lng || 7.662;
 
           const within = isWithinRange(
             latitude,
@@ -176,7 +176,7 @@ export default function DashboardPage() {
           );
 
           if (within) {
-            await finalizeCheckIn(attendanceRef);
+            await finalizeCheckIn(attendanceRef, activeSession!.exam.id);
           } else {
             setGpsStatus("far");
             setMsg("❌ Sei troppo lontano dall'aula (>650m)");
