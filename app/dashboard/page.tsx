@@ -9,7 +9,7 @@ import { isWithinRange } from "@/lib/utils/geo";
 import { updatePoints } from "@/lib/utils/points";
 import {
     MapPin, Star, Swords, CheckCircle, XCircle, ChevronDown,
-    TrendingUp, Calendar, Zap
+    TrendingUp, Calendar, Zap, Video // Aggiunto Video
 } from "lucide-react";
 
 interface Exam {
@@ -26,6 +26,7 @@ export default function DashboardPage() {
     const [exams, setExams] = useState<Exam[]>([]);
     const [gpsStatus, setGpsStatus] = useState<"idle" | "checking" | "near" | "far" | "error">("idle");
     const [checkedIn, setCheckedIn] = useState(false);
+    const [isStreaming, setIsStreaming] = useState(false); // Nuovo stato per streaming
     const [bossExam, setBossExam] = useState<string | null>(null);
     const [msg, setMsg] = useState<string | null>(null);
 
@@ -48,35 +49,52 @@ export default function DashboardPage() {
         fetchExams();
     }, [fetchExams]);
 
+    // Funzione centralizzata per l'aggiornamento punti
+    const finalizeCheckIn = async () => {
+        if (user) {
+            const now = new Date();
+            const lectureStart = new Date();
+            lectureStart.setHours(9, 0, 0);
+            const diff = lectureStart.getTime() - now.getTime();
+            const type = diff > 0 ? "puntualita" : "lezione";
+            const pts = await updatePoints(user.uid, type, bossExam ?? undefined);
+            setMsg(`✅ Check-in completato! +${pts} punti`);
+            await refreshUserData();
+            setCheckedIn(true);
+            setGpsStatus("near");
+        }
+    };
+
     const handleCheckIn = () => {
         setGpsStatus("checking");
-        if (!navigator.geolocation) {
-            setGpsStatus("error");
+
+        // Se l'utente seleziona streaming, procediamo senza GPS
+        if (isStreaming) {
+            finalizeCheckIn();
             return;
         }
+
+        if (!navigator.geolocation) {
+            setGpsStatus("error");
+            setMsg("❌ GPS non supportato dal browser");
+            return;
+        }
+
         navigator.geolocation.getCurrentPosition(
             async (pos) => {
                 const { latitude, longitude } = pos.coords;
-                // Politecnico di Torino coords (default fallback)
+                // Politecnico di Torino coords
                 const targetLat = 45.0628;
                 const targetLng = 7.6620;
-                const within = isWithinRange(latitude, longitude, targetLat, targetLng);
+
+                // Utilizza il raggio di 650m aggiornato
+                const within = isWithinRange(latitude, longitude, targetLat, targetLng, false, 650);
+
                 if (within) {
-                    setGpsStatus("near");
-                    if (user) {
-                        const now = new Date();
-                        const lectureStart = new Date();
-                        lectureStart.setHours(9, 0, 0); // example: 9 AM
-                        const diff = lectureStart.getTime() - now.getTime();
-                        const type = diff > 0 ? "puntualita" : "lezione";
-                        const pts = await updatePoints(user.uid, type, bossExam ?? undefined);
-                        setMsg(`✅ Check-in completato! +${pts} punti`);
-                        await refreshUserData();
-                    }
-                    setCheckedIn(true);
+                    finalizeCheckIn();
                 } else {
                     setGpsStatus("far");
-                    setMsg("❌ Sei troppo lontano dall'aula (>150m)");
+                    setMsg("❌ Sei troppo lontano dall'aula (>650m)");
                 }
             },
             () => setGpsStatus("error")
@@ -150,8 +168,26 @@ export default function DashboardPage() {
                         Check-in Lezione
                     </h2>
                     <p className="text-slate-400 text-sm mb-4">
-                        Verifica la tua presenza tramite GPS (raggio 150m).
+                        Verifica la tua presenza tramite GPS (650m) o Streaming.
                     </p>
+
+                    {/* Toggle Streaming */}
+                    <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl mb-6 border border-white/10">
+                        <div className="flex items-center gap-3">
+                            <Video className={isStreaming ? "text-purple-400" : "text-slate-500"} />
+                            <div>
+                                <p className="text-sm font-bold text-white">Seguo in Streaming</p>
+                                <p className="text-xs text-slate-500">Bypassa raggio GPS</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setIsStreaming(!isStreaming)}
+                            className={`w-12 h-6 rounded-full transition-all relative ${isStreaming ? 'bg-purple-600' : 'bg-slate-700'}`}
+                        >
+                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${isStreaming ? 'left-7' : 'left-1'}`} />
+                        </button>
+                    </div>
+
                     <button
                         onClick={handleCheckIn}
                         disabled={checkedIn || gpsStatus === "checking"}
@@ -165,7 +201,7 @@ export default function DashboardPage() {
                         {gpsStatus === "checking" ? (
                             <span className="flex items-center justify-center gap-2">
                                 <div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin" />
-                                Verifica GPS...
+                                Verifica...
                             </span>
                         ) : checkedIn ? (
                             <span className="flex items-center justify-center gap-2">
@@ -177,7 +213,8 @@ export default function DashboardPage() {
                             </span>
                         ) : (
                             <span className="flex items-center justify-center gap-2">
-                                <MapPin className="w-4 h-4" /> Fai Check-in
+                                {isStreaming ? <Video className="w-4 h-4" /> : <MapPin className="w-4 h-4" />}
+                                {isStreaming ? "Convalida Streaming" : "Fai Check-in"}
                             </span>
                         )}
                     </button>
