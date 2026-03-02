@@ -195,6 +195,28 @@ export default function DashboardPage() {
     setMsg("🎯 Esame Boss aggiornato!");
   };
 
+  // funzione per iscriversi agli esami del semestre
+  const toggleEnrollment = async (examId: string) => {
+    if (!user || !userData) return;
+
+    const currentList = userData.lista_esami_iscritti || [];
+    const isEnrolled = currentList.includes(examId);
+    
+    const updatedList = isEnrolled
+      ? currentList.filter((id: string) => id !== examId)
+      : [...currentList, examId];
+
+    try {
+      await updateDoc(doc(db, "users", user.uid), {
+        lista_esami_iscritti: updatedList
+      });
+      setMsg(isEnrolled ? "❌ Esame rimosso dal piano" : "✅ Iscrizione effettuata!");
+      await refreshUserData();
+    } catch (error) {
+      setMsg("❌ Errore durante l'aggiornamento");
+    }
+  };
+
   if (loading || !userData) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -253,7 +275,8 @@ export default function DashboardPage() {
             },
             {
               label: "Esami Iscritti",
-              value: userData.lista_esami_iscritti.length,
+              // Aggiunto ?. per sicurezza
+              value: userData.lista_esami_iscritti?.length || 0, 
               icon: Calendar,
               color: "text-blue-400",
               bg: "bg-blue-400/10",
@@ -281,6 +304,43 @@ export default function DashboardPage() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* NUOVA SEZIONE: Il Tuo Piano Studi */}
+        <div className="glass rounded-2xl p-6 mb-8 border border-white/5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-bold text-white flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-blue-400" />
+              Gestione Esami
+            </h2>
+            <span className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-1 rounded-md uppercase font-bold">
+              {userData.lista_esami_iscritti?.length || 0} Iscritti
+            </span>
+          </div>
+
+          <div className="grid gap-3 max-h-52 overflow-y-auto pr-2 custom-scrollbar">
+            {exams.map((exam) => {
+              const isEnrolled = userData.lista_esami_iscritti?.includes(exam.id);
+              return (
+                <div key={exam.id} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-bold text-white">{exam.nome}</span>
+                    <span className="text-[10px] text-slate-500">{exam.CFU} CFU</span>
+                  </div>
+                  <button
+                    onClick={() => toggleEnrollment(exam.id)}
+                    className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
+                      isEnrolled 
+                        ? "bg-red-500/10 text-red-400 border border-red-500/20" 
+                        : "bg-blue-600 text-white shadow-lg shadow-blue-900/20"
+                    }`}
+                  >
+                    {isEnrolled ? "Rimuovi" : "Iscriviti"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Check-in Card */}
