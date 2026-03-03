@@ -68,14 +68,19 @@ export default function DashboardPage() {
     fetchExams();
   }, [fetchExams]);
 
-  // Helper: Controlla la tolleranza di 10 minuti dall'inizio
+  // Permette il check-in da 10 minuti prima a 10 minuti dopo l'inizio
   const isWithinTimeWindow = (startTime: string) => {
     const now = new Date();
     const [h, m] = startTime.split(":").map(Number);
+
     const start = new Date();
     start.setHours(h, m, 0);
-    const limit = new Date(start.getTime() + 10 * 60 * 1000);
-    return now >= start && now <= limit;
+
+    // Definisce l'intervallo: 10 minuti PRIMA e 10 minuti DOPO
+    const windowStart = new Date(start.getTime() - 10 * 60 * 1000);
+    const windowEnd = new Date(start.getTime() + 10 * 60 * 1000);
+
+    return now >= windowStart && now <= windowEnd;
   };
 
   // Funzione centralizzata per l'aggiornamento punti e blocco duplicati
@@ -201,16 +206,18 @@ export default function DashboardPage() {
 
     const currentList = userData.lista_esami_iscritti || [];
     const isEnrolled = currentList.includes(examId);
-    
+
     const updatedList = isEnrolled
       ? currentList.filter((id: string) => id !== examId)
       : [...currentList, examId];
 
     try {
       await updateDoc(doc(db, "users", user.uid), {
-        lista_esami_iscritti: updatedList
+        lista_esami_iscritti: updatedList,
       });
-      setMsg(isEnrolled ? "❌ Esame rimosso dal piano" : "✅ Iscrizione effettuata!");
+      setMsg(
+        isEnrolled ? "❌ Esame rimosso dal piano" : "✅ Iscrizione effettuata!",
+      );
       await refreshUserData();
     } catch (error) {
       setMsg("❌ Errore durante l'aggiornamento");
@@ -276,7 +283,7 @@ export default function DashboardPage() {
             {
               label: "Esami Iscritti",
               // Aggiunto ?. per sicurezza
-              value: userData.lista_esami_iscritti?.length || 0, 
+              value: userData.lista_esami_iscritti?.length || 0,
               icon: Calendar,
               color: "text-blue-400",
               bg: "bg-blue-400/10",
@@ -320,18 +327,27 @@ export default function DashboardPage() {
 
           <div className="grid gap-3 max-h-52 overflow-y-auto pr-2 custom-scrollbar">
             {exams.map((exam) => {
-              const isEnrolled = userData.lista_esami_iscritti?.includes(exam.id);
+              const isEnrolled = userData.lista_esami_iscritti?.includes(
+                exam.id,
+              );
               return (
-                <div key={exam.id} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5">
+                <div
+                  key={exam.id}
+                  className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5"
+                >
                   <div className="flex flex-col">
-                    <span className="text-sm font-bold text-white">{exam.nome}</span>
-                    <span className="text-[10px] text-slate-500">{exam.CFU} CFU</span>
+                    <span className="text-sm font-bold text-white">
+                      {exam.nome}
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      {exam.CFU} CFU
+                    </span>
                   </div>
                   <button
                     onClick={() => toggleEnrollment(exam.id)}
                     className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
-                      isEnrolled 
-                        ? "bg-red-500/10 text-red-400 border border-red-500/20" 
+                      isEnrolled
+                        ? "bg-red-500/10 text-red-400 border border-red-500/20"
                         : "bg-blue-600 text-white shadow-lg shadow-blue-900/20"
                     }`}
                   >
