@@ -14,6 +14,15 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "lh3.googleusercontent.com",
       },
+      {
+        protocol: "https",
+        hostname: "firebasestorage.googleapis.com",
+      },
+      // allow arbitrary https hosts for user-provided URLs
+      {
+        protocol: "https",
+        hostname: "**",
+      },
     ],
   },
   eslint: {

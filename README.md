@@ -12,41 +12,45 @@
 
 ## ✨ Funzionalità
 
-| Feature | Descrizione |
-|---|---|
-| 🗺️ **Check-in GPS** | Verifica la presenza a lezione entro 150m dall'aula (Haversine formula) |
-| ⚔️ **Esame Boss** | Scegli un esame: se lo superi, raddoppia tutti i punti accumulati per quell'esame |
-| 🍅 **Timer Pomodoro** | 25/50 minuti di focus. Uscire dall'app = **-1 punto** per distrazione |
-| 🏆 **Classifica** | Leaderboard con podio per il tuo gruppo di amici |
-| 📚 **Mercato Appunti** | Pubblica e acquista link ad appunti spendendo punti (trasferimento peer-to-peer) |
-| 🔐 **Auth Google** | Login rapido con Google tramite Firebase Authentication |
+| Feature                      | Descrizione                                                                       |
+| ---------------------------- | --------------------------------------------------------------------------------- |
+| 🗺️ **Check-in GPS**          | Verifica la presenza a lezione entro 150m dall'aula (Haversine formula)           |
+| ⚔️ **Esame Boss**            | Scegli un esame: se lo superi, raddoppia tutti i punti accumulati per quell'esame |
+| 🍅 **Timer Pomodoro**        | 25/50 minuti di focus. Uscire dall'app = **-1 punto** per distrazione             |
+| 🏆 **Classifica**            | Leaderboard con podio per il tuo gruppo di amici                                  |
+| 📚 **Mercato Appunti**       | Pubblica e acquista link ad appunti spendendo punti (trasferimento peer-to-peer)  |
+| 🔐 **Auth Google**           | Login rapido con Google tramite Firebase Authentication                           |
+| 🖼️ **Avatar personalizzato** | Carica un'immagine profilo (JPG/PNG/WebP, ≤5 MB) con preview e ritaglio.          |
 
 ---
 
 ## 📊 Sistema di Punteggio
 
 ### ✅ Bonus
-| Azione | Punti |
-|---|---|
-| Lezione frequentata (GPS ✓) | +3 |
-| Puntualità (check-in 5min prima) | +2 |
-| Esame superato | +5 |
-| Esame con 30/30L | +10 |
-| Sessione Pomodoro completata | +1 |
-| **Boss Exam attivo** | **×2 su lezioni/studio** |
+
+| Azione                           | Punti                    |
+| -------------------------------- | ------------------------ |
+| Lezione frequentata (GPS ✓)      | +3                       |
+| Puntualità (check-in 5min prima) | +2                       |
+| Esame superato                   | +5                       |
+| Esame con 30/30L                 | +10                      |
+| Sessione Pomodoro completata     | +1                       |
+| **Boss Exam attivo**             | **×2 su lezioni/studio** |
 
 ### ❌ Malus
-| Azione | Punti |
-|---|---|
-| Ritardo (check-in dopo inizio) | -2 |
-| Lezione saltata | -3 |
-| Distrazione (tab switch durante timer) | -1 |
+
+| Azione                                 | Punti |
+| -------------------------------------- | ----- |
+| Ritardo (check-in dopo inizio)         | -2    |
+| Lezione saltata                        | -3    |
+| Distrazione (tab switch durante timer) | -1    |
 
 ---
 
 ## 🚀 Installazione
 
 ### Prerequisiti
+
 - Node.js >= 18
 - npm >= 9
 - Account [Firebase](https://firebase.google.com)
@@ -86,6 +90,7 @@ NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 Crea manualmente le collezioni (o lascia che si creino al primo utilizzo):
 
 **`users`**
+
 ```json
 {
   "nome": "Mario Rossi",
@@ -93,21 +98,23 @@ Crea manualmente le collezioni (o lascia che si creino al primo utilizzo):
   "punti_totali": 0,
   "esame_boss_id": null,
   "lista_esami_iscritti": [],
-  "photoURL": "https://..."
+  "photoURL": "https://..." // url immagine di avatar (vuoto genera iniziali)
 }
 ```
 
 **`exams`** (da popolare manualmente come admin)
+
 ```json
 {
   "nome": "Programmazione di Sistema",
   "CFU": 6,
   "orario_lezione": "09:00",
-  "coordinate_aula": { "lat": 45.0628, "lng": 7.6620 }
+  "coordinate_aula": { "lat": 45.0628, "lng": 7.662 }
 }
 ```
 
 **`logs`** (auto-generati dall'app)
+
 ```json
 {
   "userId": "uid",
@@ -118,6 +125,7 @@ Crea manualmente le collezioni (o lascia che si creino al primo utilizzo):
 ```
 
 **`notes`** (auto-generati dall'app)
+
 ```json
 {
   "titolo": "Riassunto Analisi I",
@@ -136,6 +144,10 @@ npm run dev
 ```
 
 Apri [http://localhost:3000](http://localhost:3000)
+
+> ⚠️ **Nota:** Se modifichi `next.config.js/ts` (ad esempio per aggiungere
+> host remoti agli avatar), devi riavviare il server di sviluppo perché le
+> impostazioni vengano ricaricate.
 
 ---
 
@@ -187,10 +199,12 @@ vercel --prod
 ```
 
 ### Opzione 3: GitHub Pages (build statica)
+
 ```bash
 npm run build
 npm run export
 ```
+
 > ⚠️ Nota: le funzionalità server-side richiedono Vercel o un host Node.js.
 
 ---
