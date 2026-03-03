@@ -1,0 +1,280 @@
+"use client";
+import React, { useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/AuthContext";
+import Navbar from "@/components/layout/Navbar";
+import Avatar from "@/components/Avatar";
+import Cropper from "react-easy-crop";
+import { getCroppedImg } from "@/lib/utils/image";
+import { db, auth } from "@/lib/firebase";
+import { doc, updateDoc } from "firebase/firestore";
+import { updateProfile } from "firebase/auth";
+
+export default function ProfilePage() {
+  const { user, userData, refreshUserData, loading } = useAuth();
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const onCropComplete = useCallback(
+    (_: any, pixels: any) => {
+      setCroppedAreaPixels(pixels);
+      if (
+        imageSrc &&
+        pixels &&
+        typeof pixels.width === "number" &&
+        pixels.width > 0 &&
+        typeof pixels.height === "number" &&
+        pixels.height > 0
+      ) {
+        // generate preview asynchronously but do not await (avoid unhandled
+        // promise errors). catch and log so errors from cropping don't bubble
+        // up to the browser console as generic Event objects.
+        getCroppedImg(imageSrc, pixels)
+          .then((blob) => {
+            const url = URL.createObjectURL(blob);
+            setPreviewUrl((old) => {
+              if (old) URL.revokeObjectURL(old);
+              return url;
+            });
+          })
+          .catch((_err) => {
+            // benign error while generating preview; ignore completely.
+          });
+      }
+    },
+    [imageSrc],
+  );
+
+  const router = useRouter();
+  React.useEffect(() => {
+    if (!loading && !user) {
+      router.push("/login");
+    }
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [user, loading, router, imageSrc, previewUrl]);
+
+  if (loading || !user || !userData) {
+    return <div>Loading...</div>;
+  }
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setError(null);
+    // cleanup previous preview only; imageSrc is a data URL so nothing to revoke
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowed.includes(file.type)) {
+      setError("Formato non supportato. Usa JPG, PNG o WEBP.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Il file supera i 5MB di dimensione.");
+      return;
+    }
+
+    // read as data URL for reliability (avoids blob URL revocation issues)
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImageSrc(reader.result as string);
+    };
+    reader.onerror = () => {
+      setError("Impossibile leggere il file");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const saveAvatar = async () => {
+    if (!imageSrc || !croppedAreaPixels) return;
+    setUploading(true);
+    try {
+      const blob = await getCroppedImg(imageSrc, croppedAreaPixels);
+
+      // convert blob -> base64 via FileReader promise
+      const base64data: string = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+
+      // Salviamo la stringa direttamente nel database (NO STORAGE!)
+      await updateDoc(doc(db, "users", user.uid), { photoURL: base64data });
+      // Firebase Auth imposes a ~1024‑char limit on photoURL, and our base64 can
+      // easily exceed that once inlined. Only update the auth profile when the
+      // value is short enough (or else the call throws auth/invalid-profile-attribute).
+      if (auth.currentUser) {
+        if (base64data.length <= 1024) {
+          await updateProfile(auth.currentUser, { photoURL: base64data });
+        } else {
+          console.warn(
+            "avatar string too long for auth.profile, skipping update",
+            base64data.length,
+          );
+        }
+      }
+      await refreshUserData();
+
+      // clear the selection so UI resets
+      setImageSrc(null);
+    } catch (err: any) {
+      // in past we saw Event objects stringify to {} – special-case them
+      if (err instanceof Event) {
+        console.error("saveAvatar got Event error", err, { type: err.type });
+        setError(
+          `Errore durante il caricamento dell'immagine: evento ${err.type}`,
+        );
+      } else {
+        console.error("saveAvatar error", err, { src: imageSrc });
+        const msg = err?.message || String(err);
+        setError(`Errore durante il salvataggio locale: ${msg}`);
+      }
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const resetAvatar = async () => {
+    setUploading(true);
+    try {
+      await updateDoc(doc(db, "users", user.uid), { photoURL: "" });
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, { photoURL: "" });
+      }
+      await refreshUserData();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="md:pl-20 min-h-screen">
+      <Navbar />
+      <main className="p-4 md:p-8 pb-24 md:pb-8 max-w-2xl mx-auto">
+        <h1 className="text-2xl font-black text-white mb-6">Profilo</h1>
+
+        <div className="flex flex-col items-center gap-4">
+          <Avatar
+            src={userData.photoURL || undefined}
+            name={userData.nome}
+            size={100}
+          />
+          <p className="text-white">{userData.nome}</p>
+        </div>
+
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-white mb-1">
+            Scegli un'immagine
+          </label>
+          {/* hidden file input triggered by button */}
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".jpg,.jpeg,.png,.webp"
+            capture="environment"
+            onChange={handleFile}
+            className="hidden"
+          />
+          <button
+            type="button"
+            className="px-4 py-2 bg-blue-600 text-white rounded"
+            onClick={() => inputRef.current?.click()}
+          >
+            Apri foto…
+          </button>
+        </div>
+
+        {error && <p className="text-red-400 mt-2">{error}</p>}
+
+        {imageSrc && (
+          <>
+            <div className="relative w-full h-64 bg-black/20 mt-4">
+              <Cropper
+                image={imageSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                cropShape="round"
+                showGrid={false}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={onCropComplete}
+              />
+            </div>
+            <div className="mt-4">
+              <label className="block text-sm text-white mb-1">Zoom</label>
+              <input
+                type="range"
+                min={1}
+                max={3}
+                step={0.01}
+                value={zoom}
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="w-full"
+              />
+            </div>
+            <div className="flex flex-col md:flex-row gap-4 mt-4 items-center">
+              {previewUrl && (
+                <div className="w-24 h-24 rounded-full overflow-hidden">
+                  <img
+                    src={previewUrl}
+                    alt="anteprima avatar"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              <div className="flex gap-4">
+                <button
+                  onClick={() => {
+                    setImageSrc(null);
+                    if (previewUrl) {
+                      URL.revokeObjectURL(previewUrl);
+                      setPreviewUrl(null);
+                    }
+                  }}
+                  className="px-4 py-2 bg-gray-600 text-white rounded"
+                >
+                  Annulla
+                </button>
+                <button
+                  onClick={saveAvatar}
+                  disabled={uploading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
+                >
+                  {uploading ? "Caricamento..." : "Salva"}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {userData.photoURL && (
+          <div className="mt-6">
+            <button
+              onClick={resetAvatar}
+              disabled={uploading}
+              className="px-4 py-2 bg-red-600 text-white rounded disabled:opacity-50"
+            >
+              {uploading ? "Eliminando..." : "Rimuovi avatar"}
+            </button>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
