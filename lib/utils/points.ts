@@ -57,6 +57,14 @@ export async function updatePoints(
   const userRef = doc(db, "users", userId);
   const logRef = collection(db, "logs");
 
+  // we fetch the user once up front so we can inspect their current total
+  const userSnap = await getDoc(userRef);
+  if (!userSnap.exists()) {
+    throw new Error(`User ${userId} not found`);
+  }
+  const userData = userSnap.data() as any;
+  const currentPoints: number = userData.punti_totali || 0;
+
   let pointsToAdd = 0;
 
   switch (type) {
@@ -86,14 +94,10 @@ export async function updatePoints(
       break;
   }
 
-  // Handle Boss Exam multiplier
+  // Handle Boss Exam multiplier using the previously retrieved userData
   if (examId && (type === "lezione" || type === "studio")) {
-    const userSnap = await getDoc(userRef);
-    if (userSnap.exists()) {
-      const userData = userSnap.data();
-      if (userData.esame_boss_id === examId) {
-        pointsToAdd *= 2;
-      }
+    if (userData.esame_boss_id === examId) {
+      pointsToAdd *= 2;
     }
   }
 
@@ -102,10 +106,17 @@ export async function updatePoints(
     pointsToAdd += POINTS.early_bonus;
   }
 
-  // Update User Total Points
-  await updateDoc(userRef, {
-    punti_totali: increment(pointsToAdd),
-  });
+  // Update User Total Points only if it won't drive the total below zero
+  if (currentPoints + pointsToAdd >= 0) {
+    await updateDoc(userRef, {
+      punti_totali: increment(pointsToAdd),
+    });
+  } else {
+    // abort and inform caller that the operation would result in a negative score
+    throw new Error(
+      `Cannot apply ${pointsToAdd} points to user ${userId}; resulting total would be negative (${currentPoints} + ${pointsToAdd})`,
+    );
+  }
 
   // Log the action (include startTime if provided for auditing)
   await addDoc(logRef, {
