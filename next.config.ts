@@ -25,9 +25,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // empty turbopack configuration silences warnings/errors when building
+  // with --turbopack (default in Next.js 16+)
+  turbopack: {},
 };
 
 export default withPWA(nextConfig);
