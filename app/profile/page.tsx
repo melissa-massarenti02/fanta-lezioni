@@ -255,6 +255,36 @@ export default function ProfilePage() {
     }
   };
 
+  const handleUnmarkExamPassed = async (exam: any) => {
+    if (!user || !userData) return;
+    if (!passedExams.has(exam.id)) {
+      setMsg("⚠️ Questo esame non è marcato come superato.");
+      return;
+    }
+    try {
+      // Mark exam as not passed in Firestore
+      await updateDoc(doc(db, "exams", exam.id), { passato: false });
+      // Remove CFU * 2 points from user
+      const bonusPoints = (exam.CFU || 0) * 2;
+      await updateDoc(doc(db, "users", user.uid), {
+        punti_totali: increment(-bonusPoints),
+      });
+      // Remove from local passed set
+      setPassedExams((old) => {
+        const newSet = new Set(old);
+        newSet.delete(exam.id);
+        return newSet;
+      });
+      await refreshUserData();
+      setMsg(
+        `↩️ Passaggio annullato! -${bonusPoints} punti (CFU ${exam.CFU} × 2)`,
+      );
+    } catch (err) {
+      console.error("unmark exam passed", err);
+      setMsg("❌ Errore durante l'annullamento.");
+    }
+  };
+
   const handleRate = async (note: any, stars: number) => {
     if (!user || !userData) return;
     // guard against duplicate
@@ -422,12 +452,14 @@ export default function ProfilePage() {
                       </span>
                     </div>
                     {passedExams.has(exam.id) ? (
-                      <div className="flex items-center gap-1 bg-emerald-500/20 px-3 py-1 rounded-lg">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                        <span className="text-xs text-emerald-400 font-bold">
-                          Superato
-                        </span>
-                      </div>
+                      <button
+                        onClick={() => handleUnmarkExamPassed(exam)}
+                        className="flex items-center gap-1.5 bg-emerald-600 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-all duration-200"
+                        title="Clicca per annullare il passaggio"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Superato</span>
+                      </button>
                     ) : (
                       <button
                         onClick={() => handleMarkExamPassed(exam)}
