@@ -37,6 +37,7 @@ const POINTS: PointConfig = {
 
 /**
  * Updates user points and logs the action in Firestore.
+ * @param minutesStudied Optional: for studio type, multiply by minutes studied (default 1)
  */
 export async function updatePoints(
   userId: string,
@@ -53,6 +54,7 @@ export async function updatePoints(
    * before this value, the user earns an additional early-arrival bonus.
    */
   startTime?: Date,
+  minutesStudied?: number,
 ) {
   const userRef = doc(db, "users", userId);
   const logRef = collection(db, "logs");
@@ -90,14 +92,25 @@ export async function updatePoints(
       pointsToAdd = POINTS.distrazione;
       break;
     case "studio":
-      pointsToAdd = POINTS.studio;
+      // 1 punto per minuto di studio (default 1 minuto se non specificato)
+      pointsToAdd = POINTS.studio * (minutesStudied || 1);
       break;
   }
 
-  // Handle Boss Exam multiplier using the previously retrieved userData
-  if (examId && (type === "lezione" || type === "studio")) {
-    if (userData.esame_boss_id === examId) {
-      pointsToAdd *= 2;
+  // Handle exam passed bonus: if exam was passed, award CFU * 2
+  if (examId && type === "esame") {
+    try {
+      const examRef = doc(db, "exams", examId);
+      const examSnap = await getDoc(examRef);
+      if (examSnap.exists()) {
+        const examData = examSnap.data() as any;
+        if (examData.passato === true && examData.CFU) {
+          // Award CFU * 2 bonus only if exam was passed
+          pointsToAdd = examData.CFU * 2;
+        }
+      }
+    } catch (err) {
+      console.error("Error checking exam passed status", err);
     }
   }
 
@@ -125,6 +138,7 @@ export async function updatePoints(
     punti_assegnati: pointsToAdd,
     examId: examId || null,
     startTime: startTime ? startTime.toISOString() : null,
+    minutesStudied: minutesStudied || null,
     timestamp: serverTimestamp(),
   });
 

@@ -34,6 +34,8 @@ interface Exam {
   nome: string;
   CFU: number;
   coordinate_aula: { lat: number; lng: number };
+  passato?: boolean; // Indicatore di esame superato
+  votoSuperamento?: number; // Voto (facoltativo)
   calendario?: { [key: number]: string[] }; // Es: { 2: ["09:00", "11:30"] }
 }
 

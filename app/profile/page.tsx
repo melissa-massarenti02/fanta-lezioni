@@ -13,9 +13,19 @@ import {
   getDoc,
   increment,
   arrayUnion,
+  collection,
+  query,
+  getDocs,
 } from "firebase/firestore";
 import { updateProfile } from "firebase/auth";
-import { BookMarked, ExternalLink, Star } from "lucide-react";
+import {
+  BookMarked,
+  ExternalLink,
+  Star,
+  CheckCircle2,
+  Trophy,
+} from "lucide-react";
+import { updatePoints } from "@/lib/utils/points";
 
 export default function ProfilePage() {
   const { user, userData, refreshUserData, loading } = useAuth();
@@ -23,6 +33,8 @@ export default function ProfilePage() {
   const [purchasedNotes, setPurchasedNotes] = useState<any[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [localRatings, setLocalRatings] = useState<Record<string, number>>({});
+  const [enrolledExams, setEnrolledExams] = useState<any[]>([]);
+  const [passedExams, setPassedExams] = useState<Set<string>>(new Set());
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -89,6 +101,32 @@ export default function ProfilePage() {
       setPurchasedNotes(arr);
     };
     loadPurchased();
+  }, [userData]);
+
+  // fetch enrolled exams when userData becomes available
+  React.useEffect(() => {
+    const loadExams = async () => {
+      if (!userData || !userData.lista_esami_iscritti?.length) {
+        setEnrolledExams([]);
+        setPassedExams(new Set());
+        return;
+      }
+      const arr: any[] = [];
+      const passed = new Set<string>();
+      for (const examId of userData.lista_esami_iscritti) {
+        const snap = await getDoc(doc(db, "exams", examId));
+        if (snap.exists()) {
+          const examData = snap.data() as any;
+          arr.push({ id: examId, ...examData });
+          if (examData.passato === true) {
+            passed.add(examId);
+          }
+        }
+      }
+      setEnrolledExams(arr);
+      setPassedExams(passed);
+    };
+    loadExams();
   }, [userData]);
 
   if (loading || !user || !userData) {
@@ -188,6 +226,32 @@ export default function ProfilePage() {
       console.error(err);
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleMarkExamPassed = async (exam: any) => {
+    if (!user || !userData) return;
+    if (passedExams.has(exam.id)) {
+      setMsg("✅ Hai già marcato questo esame come superato.");
+      return;
+    }
+    try {
+      // Mark exam as passed in Firestore
+      await updateDoc(doc(db, "exams", exam.id), { passato: true });
+      // Award CFU * 2 points to user
+      const bonusPoints = (exam.CFU || 0) * 2;
+      await updateDoc(doc(db, "users", user.uid), {
+        punti_totali: increment(bonusPoints),
+      });
+      // Add to local passed set
+      setPassedExams((old) => new Set([...old, exam.id]));
+      await refreshUserData();
+      setMsg(
+        `🎉 Esame superato! +${bonusPoints} punti bonus (CFU ${exam.CFU} × 2)`,
+      );
+    } catch (err) {
+      console.error("mark exam passed", err);
+      setMsg("❌ Errore durante il salvataggio.");
     }
   };
 
@@ -329,6 +393,53 @@ export default function ProfilePage() {
             >
               {uploading ? "Eliminando..." : "Rimuovi avatar"}
             </button>
+          </div>
+        )}
+
+        {/* enrolled exams section */}
+        {enrolledExams.length > 0 && (
+          <div className="mt-8">
+            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-yellow-400" /> Esami Iscritti
+            </h2>
+            <div className="grid grid-cols-1 gap-4">
+              {enrolledExams.map((exam) => (
+                <div
+                  key={exam.id}
+                  className={`glass rounded-xl p-4 flex flex-col gap-3 ${
+                    passedExams.has(exam.id)
+                      ? "border border-emerald-500/30"
+                      : ""
+                  }`}
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-bold text-white text-lg">
+                        {exam.nome}
+                      </h3>
+                      <span className="text-xs text-slate-400">
+                        {exam.CFU} CFU
+                      </span>
+                    </div>
+                    {passedExams.has(exam.id) ? (
+                      <div className="flex items-center gap-1 bg-emerald-500/20 px-3 py-1 rounded-lg">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        <span className="text-xs text-emerald-400 font-bold">
+                          Superato
+                        </span>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleMarkExamPassed(exam)}
+                        className="gaming-btn flex items-center gap-1.5 bg-yellow-600 hover:bg-yellow-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-colors"
+                      >
+                        <Trophy className="w-3.5 h-3.5" /> Superato
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
