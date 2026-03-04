@@ -7,12 +7,22 @@ import Avatar from "@/components/Avatar";
 import Cropper from "react-easy-crop";
 import { getCroppedImg } from "@/lib/utils/image";
 import { db, auth } from "@/lib/firebase";
-import { doc, updateDoc } from "firebase/firestore";
+import {
+  doc,
+  updateDoc,
+  getDoc,
+  increment,
+  arrayUnion,
+} from "firebase/firestore";
 import { updateProfile } from "firebase/auth";
+import { BookMarked, ExternalLink, Star } from "lucide-react";
 
 export default function ProfilePage() {
   const { user, userData, refreshUserData, loading } = useAuth();
   const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [purchasedNotes, setPurchasedNotes] = useState<any[]>([]);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [localRatings, setLocalRatings] = useState<Record<string, number>>({});
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -61,6 +71,25 @@ export default function ProfilePage() {
       }
     };
   }, [user, loading, router, imageSrc, previewUrl]);
+
+  // fetch purchased notes when userData becomes available
+  React.useEffect(() => {
+    const loadPurchased = async () => {
+      if (!userData || !userData.purchasedNotes?.length) {
+        setPurchasedNotes([]);
+        return;
+      }
+      const arr: any[] = [];
+      for (const id of userData.purchasedNotes) {
+        const snap = await getDoc(doc(db, "notes", id));
+        if (snap.exists()) {
+          arr.push({ id, ...snap.data() });
+        }
+      }
+      setPurchasedNotes(arr);
+    };
+    loadPurchased();
+  }, [userData]);
 
   if (loading || !user || !userData) {
     return <div>Loading...</div>;
@@ -162,6 +191,37 @@ export default function ProfilePage() {
     }
   };
 
+  const handleRate = async (note: any, stars: number) => {
+    if (!user || !userData) return;
+    // guard against duplicate
+    if (userData.ratingsGiven?.includes(note.id)) {
+      setMsg("Hai già valutato questo appunto.");
+      return;
+    }
+    try {
+      // update note aggregates
+      await updateDoc(doc(db, "notes", note.id), {
+        ratingSum: increment(stars),
+        ratingCount: increment(1),
+      });
+      // give points to seller
+      await updateDoc(doc(db, "users", note.venditore_id), {
+        punti_totali: increment(stars),
+      });
+      // mark as rated for current user
+      await updateDoc(doc(db, "users", user.uid), {
+        ratingsGiven: arrayUnion(note.id),
+      });
+      await refreshUserData();
+      setMsg(
+        `Grazie per la valutazione! ${stars} punti assegnati al venditore.`,
+      );
+    } catch (err) {
+      console.error("rate note", err);
+      setMsg("Errore durante la valutazione.");
+    }
+  };
+
   return (
     <div className="md:pl-20 min-h-screen">
       <Navbar />
@@ -176,28 +236,25 @@ export default function ProfilePage() {
           />
           <p className="text-white">{userData.nome}</p>
         </div>
-
-        <div className="mt-4">
-          <label className="block text-sm font-medium text-white mb-1">
-            Scegli un'immagine
-          </label>
-          {/* hidden file input triggered by button */}
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".jpg,.jpeg,.png,.webp"
-            capture="environment"
-            onChange={handleFile}
-            className="hidden"
-          />
-          <button
-            type="button"
-            className="px-4 py-2 bg-blue-600 text-white rounded"
-            onClick={() => inputRef.current?.click()}
-          >
-            Apri foto…
-          </button>
-        </div>
+        <label className="block text-sm font-medium text-white mb-1">
+          Scegli un'immagine
+        </label>
+        {/* hidden file input triggered by button */}
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".jpg,.jpeg,.png,.webp"
+          capture="environment"
+          onChange={handleFile}
+          className="hidden"
+        />
+        <button
+          type="button"
+          className="px-4 py-2 bg-blue-600 text-white rounded"
+          onClick={() => inputRef.current?.click()}
+        >
+          Apri foto…
+        </button>
 
         {error && <p className="text-red-400 mt-2">{error}</p>}
 
@@ -232,7 +289,7 @@ export default function ProfilePage() {
               {previewUrl && (
                 <div className="w-24 h-24 rounded-full overflow-hidden">
                   <img
-                    src={previewUrl}
+                    src={previewUrl || ""}
                     alt="anteprima avatar"
                     className="w-full h-full object-cover"
                   />
@@ -263,7 +320,7 @@ export default function ProfilePage() {
           </>
         )}
 
-        {userData.photoURL && (
+        {userData?.photoURL && (
           <div className="mt-6">
             <button
               onClick={resetAvatar}
@@ -272,6 +329,90 @@ export default function ProfilePage() {
             >
               {uploading ? "Eliminando..." : "Rimuovi avatar"}
             </button>
+          </div>
+        )}
+
+        {/* purchased notes section relocated */}
+        {msg && (
+          <div className="mb-4 glass px-4 py-3 rounded-xl text-sm text-center font-medium text-white">
+            {msg}
+            <button
+              onClick={() => setMsg(null)}
+              className="ml-3 text-slate-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+        {purchasedNotes.length > 0 && (
+          <div className="mt-8">
+            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+              <BookMarked className="w-5 h-5 text-emerald-400" /> Appunti
+              acquistati
+            </h2>
+            <div className="grid grid-cols-1 gap-4">
+              {purchasedNotes.map((note) => {
+                const alreadyRated = userData.ratingsGiven?.includes(note.id);
+                return (
+                  <div
+                    key={note.id}
+                    className="glass rounded-xl p-4 flex flex-col gap-2"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-bold text-white text-lg">
+                          {note.titolo}
+                        </h3>
+                        <span className="text-xs text-emerald-400">
+                          {note.materia}
+                        </span>
+                      </div>
+                      <a
+                        href={note.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    </div>
+                    <div className="text-sm text-slate-400 line-clamp-2">
+                      {note.descrizione}
+                    </div>
+                    <div className="mt-2">
+                      {alreadyRated || localRatings[note.id] ? (
+                        <div className="flex items-center gap-1">
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <Star
+                              key={s}
+                              className={`w-5 h-5 ${s <= (localRatings[note.id] || 0) ? "text-yellow-400" : "text-slate-400"}`}
+                            />
+                          ))}
+                          <span className="text-xs text-slate-400 ml-2">
+                            {alreadyRated
+                              ? "Hai già valutato questi appunti."
+                              : `Hai valutato ${localRatings[note.id]} stelle.`}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <span className="text-white text-sm">Valuta:</span>
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <button
+                              key={s}
+                              onClick={() => handleRate(note, s)}
+                              className="text-yellow-400 hover:text-yellow-500"
+                            >
+                              <Star className="w-5 h-5" />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </main>
