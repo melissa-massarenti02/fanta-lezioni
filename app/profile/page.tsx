@@ -229,10 +229,34 @@ export default function ProfilePage() {
     }
   };
 
+  // Check if current date falls within an exam session period
+  const isWithinExamSession = (): boolean => {
+    const now = new Date();
+    const month = now.getMonth(); // 0 = January, 11 = December
+
+    // Sessione autunnale: settembre (8) e ottobre (9)
+    if (month === 8 || month === 9) return true;
+
+    // Sessione invernale: gennaio (0) e febbraio (1)
+    if (month === 0 || month === 1) return true;
+
+    // Sessione estiva: giugno (5) e luglio (6)
+    if (month === 5 || month === 6) return true;
+
+    return false;
+  };
+
   const handleMarkExamPassed = async (exam: any) => {
     if (!user || !userData) return;
     if (passedExams.has(exam.id)) {
       setMsg("✅ Hai già marcato questo esame come superato.");
+      return;
+    }
+    // Check if current date is within an exam session
+    if (!isWithinExamSession()) {
+      setMsg(
+        "🔒 Gli esami possono essere superati solo durante i periodi di sessione: settembre-ottobre (autunnale), gennaio-febbraio (invernale), giugno-luglio (estiva).",
+      );
       return;
     }
     try {
