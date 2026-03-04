@@ -10,6 +10,7 @@ import {
   LogOut,
   Zap,
   User,
+  Github,
 } from "lucide-react";
 import Avatar from "@/components/Avatar";
 
@@ -35,27 +36,27 @@ export default function Navbar() {
       </div>
 
       {/* Nav items */}
-      <div className="flex flex-row md:flex-col justify-around md:justify-start md:gap-2 md:px-2 md:flex-1 py-2">
+      <div className="flex flex-row md:flex-col justify-around md:justify-start md:gap-2 md:px-2 md:flex-1 py-1 md:py-2 gap-0">
         {navItems.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;
           return (
             <Link
               key={href}
               href={href}
-              className={`flex flex-col md:flex-row items-center justify-center md:justify-start gap-1 md:gap-3 p-3 rounded-xl transition-all duration-200 group ${
+              className={`flex items-center justify-center p-2 md:p-3 md:flex-row rounded-lg md:rounded-xl transition-all duration-200 group ${
                 active
                   ? "bg-blue-600/30 text-blue-400 neon-border"
                   : "text-slate-400 hover:bg-white/5 hover:text-white"
               }`}
             >
               <Icon className="w-5 h-5 flex-shrink-0" />
-              <span className="text-xs md:sr-only">{label}</span>
+              <span className="md:sr-only">{label}</span>
             </Link>
           );
         })}
       </div>
 
-      {/* User + Logout - Desktop */}
+      {/* User + Links - Desktop */}
       <div className="hidden md:flex flex-col items-center gap-3 py-4 px-2">
         <Avatar
           src={userData?.photoURL || undefined}
@@ -63,6 +64,15 @@ export default function Navbar() {
           size={36}
           className="border-2 border-blue-500"
         />
+        <a
+          href="https://github.com/melissa-massarenti02/fanta-lezioni"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="p-3 rounded-xl text-slate-400 hover:text-white hover:bg-gray-700 transition-all duration-200"
+          title="Repository GitHub"
+        >
+          <Github className="w-5 h-5" />
+        </a>
         <button
           onClick={logout}
           className="p-3 rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-400/10 transition-all duration-200"
