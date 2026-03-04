@@ -3,6 +3,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/lib/AuthContext";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
+import Avatar from "@/components/Avatar";
 import { db } from "@/lib/firebase";
 import {
   collection,
@@ -294,13 +295,22 @@ export default function DashboardPage() {
       <main className="p-4 md:p-8 pb-24 md:pb-8 max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <div>
+          <div className="flex flex-col">
             <p className="mt-2 text-sm text-gray-400">
               Tieni d&apos;occhio i tuoi progressi
             </p>
-            <h1 className="text-2xl font-black text-white">
-              {userData.nome} 👋
-            </h1>
+            <div className="flex items-center gap-2">
+              {/* avatar only on mobile */}
+              <Avatar
+                src={userData.photoURL || undefined}
+                name={userData.nome}
+                size={32}
+                className="border-2 border-blue-500 md:hidden"
+              />
+              <h1 className="text-2xl font-black text-white">
+                {userData.nome} 👋
+              </h1>
+            </div>
           </div>
           <div className="glass px-4 py-2 rounded-xl flex items-center gap-2">
             <Zap className="w-4 h-4 text-yellow-400" />

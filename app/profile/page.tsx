@@ -29,12 +29,12 @@ import {
   Save,
   Trash2,
   Github,
+  LogOut,
 } from "lucide-react";
 import { updatePoints } from "@/lib/utils/points";
 
 export default function ProfilePage() {
-  const { user, userData, refreshUserData, loading } = useAuth();
-  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const { user, userData, refreshUserData, loading, logout } = useAuth();  const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [purchasedNotes, setPurchasedNotes] = useState<any[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [localRatings, setLocalRatings] = useState<Record<string, number>>({});
@@ -362,6 +362,17 @@ export default function ProfilePage() {
             <Github className="w-5 h-5 mr-2" />
             Repository
           </a>
+        </div>
+
+        {/* Logout button for mobile */}
+        <div className="md:hidden mb-6 text-center">
+          <button
+            onClick={logout}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 transition"
+          >
+            <LogOut className="w-5 h-5" />
+            Esci
+          </button>
         </div>
 
         {/* Avatar Card with gradient background */}
