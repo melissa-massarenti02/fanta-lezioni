@@ -26,6 +26,7 @@ import {
   Calendar,
   Zap,
   Video, // Aggiunto Video
+  Trophy,
 } from "lucide-react";
 
 // Interfaccia aggiornata con il calendario (mappa di array)
@@ -50,7 +51,11 @@ export default function DashboardPage() {
   const [isStreaming, setIsStreaming] = useState(false); // Nuovo stato per streaming
   const [bossExam, setBossExam] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
-
+  const [allUsers, setAllUsers] = useState<{ id: string; nome: string }[]>([]);
+  const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const nominationDate = new Date(new Date().getFullYear(), 8, 30); // 30 September
+  const votingEndDate = new Date(new Date().getFullYear(), 9, 7); // early October
+  const [hasVoted, setHasVoted] = useState(false);
   useEffect(() => {
     if (!loading && !user) router.push("/login");
   }, [user, loading, router]);
@@ -69,6 +74,27 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchExams();
   }, [fetchExams]);
+
+  // load users for good conduct nomination once date passed
+  useEffect(() => {
+    const loadUsers = async () => {
+      if (new Date() < nominationDate) return;
+      const q = query(collection(db, "users"));
+      const snap = await getDocs(q);
+      setAllUsers(
+        snap.docs.map((d) => ({
+          id: d.id,
+          nome: (d.data() as any).nome || "",
+        })),
+      );
+    };
+    loadUsers();
+  }, []);
+
+  // Nomination UI
+  const now = new Date();
+  const showNomination = now >= nominationDate;
+  const votingClosed = now > votingEndDate;
 
   // Permette il check-in da 10 minuti prima a 10 minuti dopo l'inizio
   const isWithinTimeWindow = (startTime: string) => {
@@ -109,6 +135,32 @@ export default function DashboardPage() {
   };
 
   // Sostituisci handleCheckIn con questa versione "Multi-Esame"
+
+  const handleNomination = async () => {
+    if (!user || !selectedUser) return;
+    const now = new Date();
+    if (now < nominationDate) {
+      setMsg("🔒 La nomination sarà disponibile dopo fine settembre.");
+      return;
+    }
+    if (now > votingEndDate) {
+      setMsg("⚠️ Il periodo di voto è terminato.");
+      return;
+    }
+    try {
+      // record vote
+      await setDoc(doc(collection(db, "goodConductVotes")), {
+        voterId: user.uid,
+        nomineeId: selectedUser,
+        timestamp: new Date(),
+      });
+      setHasVoted(true);
+      setMsg("✅ Voto registrato. Grazie!");
+    } catch (err) {
+      console.error(err);
+      setMsg("❌ Errore durante la registrazione del voto.");
+    }
+  };
   const handleCheckIn = async () => {
     setGpsStatus("checking");
 
@@ -470,6 +522,51 @@ export default function DashboardPage() {
             <p className="text-slate-500 text-sm text-center py-4">
               Nessun esame disponibile. Chiedi all'admin di aggiungerne.
             </p>
+          )}
+        </div>
+        {/* Good conduct placeholder at bottom */}
+        <div className="glass rounded-2xl p-6 mt-8 mb-6 text-center">
+          <Trophy className="w-8 h-8 mx-auto text-yellow-400 mb-2" />
+          <h2 className="text-lg font-bold text-white mb-1">
+            Punti Buona Condotta
+          </h2>
+          {now < nominationDate ? (
+            <p className="text-slate-400">
+              Attivo dal {nominationDate.toLocaleDateString()}
+            </p>
+          ) : votingClosed ? (
+            <p className="text-slate-400">Votazioni chiuse</p>
+          ) : hasVoted ? (
+            <p className="text-slate-400">
+              Hai già votato:{" "}
+              {allUsers.find((u) => u.id === selectedUser)?.nome || ""}
+            </p>
+          ) : (
+            <div className="flex flex-col items-center gap-2">
+              <select
+                value={selectedUser || ""}
+                onChange={(e) => setSelectedUser(e.target.value)}
+                className="bg-white/5 text-white px-3 py-2 rounded-xl w-full"
+              >
+                <option value="" disabled>
+                  Seleziona un collega...
+                </option>
+                {allUsers
+                  .filter((u) => u.id !== user?.uid)
+                  .map((u) => (
+                    <option key={u.id} value={u.id} className="text-black">
+                      {u.nome}
+                    </option>
+                  ))}
+              </select>
+              <button
+                onClick={handleNomination}
+                className="gaming-btn bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl font-bold text-sm transition-colors"
+                disabled={!selectedUser}
+              >
+                Vota +30
+              </button>
+            </div>
           )}
         </div>
       </main>

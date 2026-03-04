@@ -9,7 +9,7 @@ import {
   getDoc,
 } from "firebase/firestore";
 
-export type ActionType = "lezione" | "esame" | "studio";
+export type ActionType = "lezione" | "esame" | "studio" | "buona_condotta";
 
 interface PointConfig {
   lezione: number;
@@ -20,6 +20,7 @@ interface PointConfig {
   salto: number;
   distrazione: number;
   studio: number;
+  buona_condotta: number;
   early_bonus: number; // points awarded for early arrival
 }
 
@@ -32,6 +33,7 @@ const POINTS: PointConfig = {
   salto: -3,
   distrazione: -1,
   studio: 1,
+  buona_condotta: 30, // bonus per comportamento
   early_bonus: 5, // bonus for arriving before scheduled start
 };
 
@@ -94,6 +96,9 @@ export async function updatePoints(
     case "studio":
       // 1 punto per minuto di studio (default 1 minuto se non specificato)
       pointsToAdd = POINTS.studio * (minutesStudied || 1);
+      break;
+    case "buona_condotta":
+      pointsToAdd = POINTS.buona_condotta;
       break;
   }
 
