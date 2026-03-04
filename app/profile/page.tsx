@@ -24,6 +24,10 @@ import {
   Star,
   CheckCircle2,
   Trophy,
+  Upload,
+  X,
+  Save,
+  Trash2,
 } from "lucide-react";
 import { updatePoints } from "@/lib/utils/points";
 
@@ -344,37 +348,69 @@ export default function ProfilePage() {
     <div className="md:pl-20 min-h-screen">
       <Navbar />
       <main className="p-4 md:p-8 pb-24 md:pb-8 max-w-2xl mx-auto">
-        <h1 className="text-2xl font-black text-white mb-6">Profilo</h1>
+        <h1 className="text-2xl font-black text-white mb-8">Profilo</h1>
 
-        <div className="flex flex-col items-center gap-4">
-          <Avatar
-            src={userData.photoURL || undefined}
-            name={userData.nome}
-            size={100}
-          />
-          <p className="text-white">{userData.nome}</p>
+        {/* Avatar Card with gradient background */}
+        <div className="relative w-full rounded-3xl overflow-hidden mb-8 shadow-2xl">
+          {/* Gradient background */}
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500 via-blue-500 to-cyan-400"></div>
+
+          {/* Content */}
+          <div className="relative z-10 flex flex-col items-center pt-12 pb-8 px-6">
+            {/* Avatar */}
+            <div className="mb-6 ring-4 ring-white/30 rounded-full shadow-xl hover:ring-white/50 transition-all duration-300">
+              <Avatar
+                src={userData.photoURL || undefined}
+                name={userData.nome}
+                size={120}
+              />
+            </div>
+
+            {/* Name */}
+            <h2 className="text-3xl font-black text-white mb-8 text-center">
+              {userData.nome}
+            </h2>
+
+            {/* File input */}
+            <input
+              ref={inputRef}
+              type="file"
+              accept=".jpg,.jpeg,.png,.webp"
+              capture="environment"
+              onChange={handleFile}
+              className="hidden"
+            />
+
+            {/* Button Group */}
+            <div className="flex gap-3 flex-wrap justify-center w-full">
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                className="flex items-center gap-2 px-5 py-2.5 bg-white/20 hover:bg-white/30 text-white rounded-full font-semibold backdrop-blur-sm transition-all duration-200 hover:scale-105 active:scale-95"
+              >
+                <Upload className="w-4 h-4" />
+                Carica foto
+              </button>
+
+              {userData?.photoURL && (
+                <button
+                  onClick={resetAvatar}
+                  disabled={uploading}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-red-500/30 hover:bg-red-500/50 text-white rounded-full font-semibold backdrop-blur-sm transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {uploading ? "Eliminando..." : "Rimuovi"}
+                </button>
+              )}
+            </div>
+
+            {error && (
+              <p className="mt-4 text-red-200 text-sm font-medium bg-red-500/20 px-4 py-2 rounded-full backdrop-blur-sm">
+                {error}
+              </p>
+            )}
+          </div>
         </div>
-        <label className="block text-sm font-medium text-white mb-1">
-          Scegli un'immagine
-        </label>
-        {/* hidden file input triggered by button */}
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".jpg,.jpeg,.png,.webp"
-          capture="environment"
-          onChange={handleFile}
-          className="hidden"
-        />
-        <button
-          type="button"
-          className="px-4 py-2 bg-blue-600 text-white rounded"
-          onClick={() => inputRef.current?.click()}
-        >
-          Apri foto…
-        </button>
-
-        {error && <p className="text-red-400 mt-2">{error}</p>}
 
         {imageSrc && (
           <>
@@ -403,9 +439,9 @@ export default function ProfilePage() {
                 className="w-full"
               />
             </div>
-            <div className="flex flex-col md:flex-row gap-4 mt-4 items-center">
+            <div className="flex flex-col md:flex-row gap-4 mt-4 items-center justify-center w-full">
               {previewUrl && (
-                <div className="w-24 h-24 rounded-full overflow-hidden">
+                <div className="w-24 h-24 rounded-full overflow-hidden ring-2 ring-white/50">
                   <img
                     src={previewUrl || ""}
                     alt="anteprima avatar"
@@ -413,7 +449,7 @@ export default function ProfilePage() {
                   />
                 </div>
               )}
-              <div className="flex gap-4">
+              <div className="flex gap-3 flex-wrap justify-center">
                 <button
                   onClick={() => {
                     setImageSrc(null);
@@ -422,32 +458,22 @@ export default function ProfilePage() {
                       setPreviewUrl(null);
                     }
                   }}
-                  className="px-4 py-2 bg-gray-600 text-white rounded"
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-full font-semibold transition-all duration-200 hover:scale-105 active:scale-95"
                 >
+                  <X className="w-4 h-4" />
                   Annulla
                 </button>
                 <button
                   onClick={saveAvatar}
                   disabled={uploading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full font-semibold transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {uploading ? "Caricamento..." : "Salva"}
+                  <Save className="w-4 h-4" />
+                  {uploading ? "Salvataggio..." : "Salva"}
                 </button>
               </div>
             </div>
           </>
-        )}
-
-        {userData?.photoURL && (
-          <div className="mt-6">
-            <button
-              onClick={resetAvatar}
-              disabled={uploading}
-              className="px-4 py-2 bg-red-600 text-white rounded disabled:opacity-50"
-            >
-              {uploading ? "Eliminando..." : "Rimuovi avatar"}
-            </button>
-          </div>
         )}
 
         {/* enrolled exams section */}
