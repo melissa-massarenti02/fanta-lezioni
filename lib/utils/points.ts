@@ -94,8 +94,12 @@ export async function updatePoints(
       pointsToAdd = POINTS.distrazione;
       break;
     case "studio":
-      // 1 punto per minuto di studio (default 1 minuto se non specificato)
-      pointsToAdd = POINTS.studio * (minutesStudied || 1);
+      // Protezione: se arrivano millisecondi (valore > 1000), convertiamo in minuti
+      let actualMinutes = minutesStudied || 1;
+      if (actualMinutes > 1000) {
+        actualMinutes = Math.floor(actualMinutes / 60000);
+      }
+      pointsToAdd = POINTS.studio * actualMinutes;
       break;
     case "buona_condotta":
       pointsToAdd = POINTS.buona_condotta;
@@ -110,8 +114,8 @@ export async function updatePoints(
       if (examSnap.exists()) {
         const examData = examSnap.data() as any;
         if (examData.passato === true && examData.CFU) {
-          // Award CFU * 2 bonus only if exam was passed
-          pointsToAdd = examData.CFU * 2;
+          // USA += per sommare il bonus ai punti base (5 + bonus)
+          pointsToAdd += examData.CFU * 2;
         }
       }
     } catch (err) {
@@ -126,6 +130,8 @@ export async function updatePoints(
 
   // Update User Total Points only if it won't drive the total below zero
   if (currentPoints + pointsToAdd >= 0) {
+    // Limite massimo di sicurezza per singola operazione
+    pointsToAdd = Math.min(pointsToAdd, 200);
     await updateDoc(userRef, {
       punti_totali: increment(pointsToAdd),
     });
