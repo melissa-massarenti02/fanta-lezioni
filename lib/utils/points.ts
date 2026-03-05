@@ -94,12 +94,21 @@ export async function updatePoints(
       pointsToAdd = POINTS.distrazione;
       break;
     case "studio":
-      // Protezione: se arrivano millisecondi (valore > 1000), convertiamo in minuti
-      let actualMinutes = minutesStudied || 1;
-      if (actualMinutes > 1000) {
-        actualMinutes = Math.floor(actualMinutes / 60000);
+      const rawValue = minutesStudied || 1; //
+      let sanitized: number;
+
+      // Conversione sicura universale
+      if (rawValue > 100000) { 
+        sanitized = Math.floor(rawValue / 60000); // ms -> min
+      } else if (rawValue > 120) { 
+        sanitized = Math.floor(rawValue / 60); // sec -> min
+      } else {
+        sanitized = rawValue; // già min
       }
-      pointsToAdd = POINTS.studio * actualMinutes;
+
+      // Limite di sicurezza e calcolo finale
+      const finalMinutes = Math.min(sanitized, 180); //
+      pointsToAdd = POINTS.studio * finalMinutes; //
       break;
     case "buona_condotta":
       pointsToAdd = POINTS.buona_condotta;
