@@ -94,22 +94,13 @@ export async function updatePoints(
       pointsToAdd = POINTS.distrazione;
       break;
     case "studio":
-      const rawValue = minutesStudied || 1; //
-      let sanitized: number;
-
-      // Conversione sicura universale
-      if (rawValue > 100000) { 
-        sanitized = Math.floor(rawValue / 60000); // ms -> min
-      } else if (rawValue > 120) { 
-        sanitized = Math.floor(rawValue / 60); // sec -> min
-      } else {
-        sanitized = rawValue; // già min
-      }
-
-      // Limite di sicurezza e calcolo finale
-      const finalMinutes = Math.min(sanitized, 180); //
-      pointsToAdd = POINTS.studio * finalMinutes; //
-      break;
+    // Prendiamo il valore così com'è, con un default di 1
+    const finalMinutes = minutesStudied || 1;
+    
+    // Limite di sicurezza: non più di 180 minuti per singola sessione
+    const sanitizedMinutes = Math.min(finalMinutes, 180); 
+    pointsToAdd = POINTS.studio * sanitizedMinutes; 
+    break;
     case "buona_condotta":
       pointsToAdd = POINTS.buona_condotta;
       break;

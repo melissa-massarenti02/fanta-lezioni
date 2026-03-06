@@ -77,36 +77,31 @@ export default function TimerPage() {
   }, [running]);
 
   // Award on completion
-  useEffect(() => {
-    if (completed && user) {
-      (async () => {
-        const mode = MODES[modeIdx];
-        let pointsToAdd = 0;
-        let message = "";
+useEffect(() => {
+  if (completed && user) {
+    (async () => {
+      const mode = MODES[modeIdx];
+      // Calcoliamo i minuti reali (es. 25 o 50)
+      const minutes = Math.floor(mode.duration / 60);
+      
+      let type: "studio" | "buona_condotta" = "studio";
+      let message = "";
 
-        if (modeIdx === 1) {
-          // Pausa: 1 punto indistintamente
-          pointsToAdd = 1;
-          message = "☕ Pausa completata! +1 punto";
-        } else {
-          // Focus e Focus Lungo: 1 punto per minuto
-          const minutes = mode.duration / 60;
-          pointsToAdd = minutes;
-          message = `🎉 Sessione completata! +${minutes} punti (1 minuto)`;
-        }
+      if (modeIdx === 1) { // Modalità Pausa
+        // Per la pausa diamo 1 punto fisso usando la logica studio
+        message = "☕ Pausa completata! +1 punto";
+        await updatePoints(user.uid, "studio", undefined, undefined, 1);
+      } else {
+        // Focus e Focus Lungo: 1 punto per minuto
+        message = `🎉 Sessione completata! +${minutes} punti`;
+        await updatePoints(user.uid, "studio", undefined, undefined, minutes);
+      }
 
-        const pts = await updatePoints(
-          user.uid,
-          "studio",
-          undefined,
-          undefined,
-          pointsToAdd,
-        );
-        await refreshUserData();
-        setMsg(message);
-      })();
-    }
-  }, [completed, user, refreshUserData, modeIdx]);
+      await refreshUserData();
+      setMsg(message);
+    })();
+  }
+}, [completed, user, refreshUserData, modeIdx]);
 
   const handleMode = (idx: number) => {
     setModeIdx(idx);
