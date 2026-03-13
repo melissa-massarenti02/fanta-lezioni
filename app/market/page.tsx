@@ -56,6 +56,7 @@ export default function MarketPage() {
     prezzo: 5,
   });
   const [submitting, setSubmitting] = useState(false);
+  const [localRatings, setLocalRatings] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!loading && !user) router.push("/login");
@@ -109,6 +110,31 @@ export default function MarketPage() {
     } catch (err) {
       console.error("delete note", err);
       setMsg("❌ Errore durante l'eliminazione");
+    }
+  };
+
+  const handleRate = async (note: Note, stars: number) => {
+    if (!user || !userData) return;
+    if (userData.ratingsGiven?.includes(note.id)) {
+      setMsg("⚠️ Hai già valutato questo appunto.");
+      return;
+    }
+    try {
+      await updateDoc(doc(db, "notes", note.id), {
+        ratingSum: increment(stars),
+        ratingCount: increment(1),
+      });
+      await updateDoc(doc(db, "users", note.venditore_id), {
+        punti_totali: increment(stars),
+      });
+      await updateDoc(doc(db, "users", user.uid), {
+        ratingsGiven: arrayUnion(note.id),
+      });
+      setLocalRatings((prev) => ({ ...prev, [note.id]: stars }));
+      await refreshUserData();
+      setMsg(`⭐ Feedback inviato! +${stars} punti a ${note.venditore_nome}`);
+    } catch (err) {
+      setMsg("❌ Errore durante la valutazione.");
     }
   };
 
@@ -222,16 +248,20 @@ export default function MarketPage() {
                     da {note.venditore_nome}
                   </span>
                   <div className="flex gap-2 items-center">
-                    <a
-                      href={note.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
-                    {/* seller can delete */}
-                    {note.venditore_id === user?.uid && (
+                    {/* Link visibile solo se acquistato o se sei il proprietario */}
+                    {(userData?.purchasedNotes?.includes(note.id) || note.venditore_id === user?.uid) && (
+                      <a
+                        href={note.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    )}
+
+                    {note.venditore_id === user?.uid ? (
+                      /* ELIMINA (Solo proprietario) */
                       <button
                         onClick={() => handleDelete(note.id)}
                         className="p-2 rounded-lg text-red-400 hover:bg-red-500/20 transition-colors"
@@ -239,20 +269,39 @@ export default function MarketPage() {
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
+                    ) : userData?.purchasedNotes?.includes(note.id) ? (
+                      /* SISTEMA RATING (Solo se acquistato) */
+                      <div className="flex items-center gap-0.5 bg-white/5 px-2 py-1 rounded-lg">
+                        {[1, 2, 3, 4, 5].map((s) => {
+                          const alreadyRated = userData.ratingsGiven?.includes(note.id) || localRatings[note.id];
+                          const rating = localRatings[note.id] || 0;
+                          return (
+                            <button
+                              key={s}
+                              disabled={!!alreadyRated}
+                              onClick={() => handleRate(note, s)}
+                              className={`${!alreadyRated ? "hover:scale-110 transition-transform" : "cursor-default"}`}
+                            >
+                              <Star 
+                                className={`w-3.5 h-3.5 ${
+                                  alreadyRated && s <= rating 
+                                  ? "text-yellow-400 fill-yellow-400" 
+                                  : "text-slate-600"
+                                }`} 
+                              />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      /* BOTTONE COMPRA (Default) */
+                      <button
+                        onClick={() => handleBuy(note)}
+                        className="gaming-btn flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-colors"
+                      >
+                        <ShoppingCart className="w-3.5 h-3.5" /> Compra
+                      </button>
                     )}
-                    {note.venditore_id !== user?.uid &&
-                      (userData?.purchasedNotes?.includes(note.id) ? (
-                        <span className="text-xs text-slate-400 italic">
-                          Acquistato
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => handleBuy(note)}
-                          className="gaming-btn flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-colors"
-                        >
-                          <ShoppingCart className="w-3.5 h-3.5" /> Compra
-                        </button>
-                      ))}
                   </div>
                 </div>
               </div>

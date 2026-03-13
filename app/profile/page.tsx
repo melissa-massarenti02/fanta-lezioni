@@ -12,16 +12,9 @@ import {
   updateDoc,
   getDoc,
   increment,
-  arrayUnion,
-  collection,
-  query,
-  getDocs,
 } from "firebase/firestore";
 import { updateProfile } from "firebase/auth";
 import {
-  BookMarked,
-  ExternalLink,
-  Star,
   CheckCircle2,
   Trophy,
   Upload,
@@ -35,9 +28,9 @@ import { updatePoints } from "@/lib/utils/points";
 
 export default function ProfilePage() {
   const { user, userData, refreshUserData, loading, logout } = useAuth();  const [imageSrc, setImageSrc] = useState<string | null>(null);
-  const [purchasedNotes, setPurchasedNotes] = useState<any[]>([]);
+  // const [purchasedNotes, setPurchasedNotes] = useState<any[]>([]); SPOSTATO IN MARKET PER UX MIGLIORE
   const [msg, setMsg] = useState<string | null>(null);
-  const [localRatings, setLocalRatings] = useState<Record<string, number>>({});
+  // const [localRatings, setLocalRatings] = useState<Record<string, number>>({}); SPOSTATO IN MARKET PER UX MIGLIORE
   const [enrolledExams, setEnrolledExams] = useState<any[]>([]);
   const [passedExams, setPassedExams] = useState<Set<string>>(new Set());
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -90,23 +83,23 @@ export default function ProfilePage() {
   }, [user, loading, router, imageSrc, previewUrl]);
 
   // fetch purchased notes when userData becomes available
-  React.useEffect(() => {
-    const loadPurchased = async () => {
-      if (!userData || !userData.purchasedNotes?.length) {
-        setPurchasedNotes([]);
-        return;
-      }
-      const arr: any[] = [];
-      for (const id of userData.purchasedNotes) {
-        const snap = await getDoc(doc(db, "notes", id));
-        if (snap.exists()) {
-          arr.push({ id, ...snap.data() });
-        }
-      }
-      setPurchasedNotes(arr);
-    };
-    loadPurchased();
-  }, [userData]);
+  //const loadPurchased = async () => {
+  //    React.useEffect(() => {
+  //    if (!userData || !userData.purchasedNotes?.length) {
+  //      setPurchasedNotes([]);
+  //      return;
+  //    }
+  //    const arr: any[] = [];
+  //    for (const id of userData.purchasedNotes) {
+  //      const snap = await getDoc(doc(db, "notes", id));
+  //      if (snap.exists()) {
+  //        arr.push({ id, ...snap.data() });
+  //      }
+  //    }
+  //    setPurchasedNotes(arr);
+  //  };
+  //  loadPurchased();
+  //}, [userData]);
 
   // fetch enrolled exams when userData becomes available
   React.useEffect(() => {
@@ -314,36 +307,36 @@ export default function ProfilePage() {
     }
   };
 
-  const handleRate = async (note: any, stars: number) => {
-    if (!user || !userData) return;
-    // guard against duplicate
-    if (userData.ratingsGiven?.includes(note.id)) {
-      setMsg("Hai già valutato questo appunto.");
-      return;
-    }
-    try {
-      // update note aggregates
-      await updateDoc(doc(db, "notes", note.id), {
-        ratingSum: increment(stars),
-        ratingCount: increment(1),
-      });
-      // give points to seller
-      await updateDoc(doc(db, "users", note.venditore_id), {
-        punti_totali: increment(stars),
-      });
-      // mark as rated for current user
-      await updateDoc(doc(db, "users", user.uid), {
-        ratingsGiven: arrayUnion(note.id),
-      });
-      await refreshUserData();
-      setMsg(
-        `Grazie per la valutazione! ${stars} punti assegnati al venditore.`,
-      );
-    } catch (err) {
-      console.error("rate note", err);
-      setMsg("Errore durante la valutazione.");
-    }
-  };
+  // const handleRate = async (note: any, stars: number) => {
+  //   if (!user || !userData) return;
+  //   // guard against duplicate
+  //   if (userData.ratingsGiven?.includes(note.id)) {
+  //     setMsg("Hai già valutato questo appunto.");
+  //     return;
+  //   }
+  //   try {
+  //     // update note aggregates
+  //     await updateDoc(doc(db, "notes", note.id), {
+  //       ratingSum: increment(stars),
+  //       ratingCount: increment(1),
+  //     });
+  //     // give points to seller
+  //     await updateDoc(doc(db, "users", note.venditore_id), {
+  //       punti_totali: increment(stars),
+  //     });
+  //     // mark as rated for current user
+  //     await updateDoc(doc(db, "users", user.uid), {
+  //       ratingsGiven: arrayUnion(note.id),
+  //     });
+  //     await refreshUserData();
+  //     setMsg(
+  //       `Grazie per la valutazione! ${stars} punti assegnati al venditore.`,
+  //     );
+  //   } catch (err) {
+  //     console.error("rate note", err);
+  //     setMsg("Errore durante la valutazione.");
+  //   }
+  // };
 
   return (
     <div className="md:pl-20 min-h-screen">
@@ -546,90 +539,6 @@ export default function ProfilePage() {
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
-        )}
-
-        {/* purchased notes section relocated */}
-        {msg && (
-          <div className="mb-4 glass px-4 py-3 rounded-xl text-sm text-center font-medium text-white">
-            {msg}
-            <button
-              onClick={() => setMsg(null)}
-              className="ml-3 text-slate-400 hover:text-white"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-        {purchasedNotes.length > 0 && (
-          <div className="mt-8">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              <BookMarked className="w-5 h-5 text-emerald-400" /> Appunti
-              acquistati
-            </h2>
-            <div className="grid grid-cols-1 gap-4">
-              {purchasedNotes.map((note) => {
-                const alreadyRated = userData.ratingsGiven?.includes(note.id);
-                return (
-                  <div
-                    key={note.id}
-                    className="glass rounded-xl p-4 flex flex-col gap-2"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-bold text-white text-lg">
-                          {note.titolo}
-                        </h3>
-                        <span className="text-xs text-emerald-400">
-                          {note.materia}
-                        </span>
-                      </div>
-                      <a
-                        href={note.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
-                    </div>
-                    <div className="text-sm text-slate-400 line-clamp-2">
-                      {note.descrizione}
-                    </div>
-                    <div className="mt-2">
-                      {alreadyRated || localRatings[note.id] ? (
-                        <div className="flex items-center gap-1">
-                          {[1, 2, 3, 4, 5].map((s) => (
-                            <Star
-                              key={s}
-                              className={`w-5 h-5 ${s <= (localRatings[note.id] || 0) ? "text-yellow-400" : "text-slate-400"}`}
-                            />
-                          ))}
-                          <span className="text-xs text-slate-400 ml-2">
-                            {alreadyRated
-                              ? "Hai già valutato questi appunti."
-                              : `Hai valutato ${localRatings[note.id]} stelle.`}
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1">
-                          <span className="text-white text-sm">Valuta:</span>
-                          {[1, 2, 3, 4, 5].map((s) => (
-                            <button
-                              key={s}
-                              onClick={() => handleRate(note, s)}
-                              className="text-yellow-400 hover:text-yellow-500"
-                            >
-                              <Star className="w-5 h-5" />
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
             </div>
           </div>
         )}
