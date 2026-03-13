@@ -138,6 +138,9 @@ export default function MarketPage() {
     }
   };
 
+  const purchasedNotesList = notes.filter(n => userData?.purchasedNotes?.includes(n.id));
+  const marketNotes = notes.filter(n => !userData?.purchasedNotes?.includes(n.id) && n.venditore_id !== user?.uid);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !userData) return;
@@ -398,6 +401,61 @@ export default function MarketPage() {
               </form>
             </div>
           </div>
+        )}
+        {purchasedNotesList.length > 0 && (
+          <section className="mb-10">
+            <h2 className="text-lg font-black text-white mb-4 flex items-center gap-2">
+              <ShoppingCart className="w-5 h-5 text-blue-400" /> I Miei Acquisti 
+              <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full">
+                {purchasedNotesList.length}
+              </span>
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {purchasedNotesList.map((note) => (
+                <div key={`purchased-${note.id}`} className="glass border-blue-500/30 rounded-2xl p-5 flex flex-col gap-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-bold text-white">{note.titolo}</h3>
+                      <span className="text-xs text-blue-400 font-medium">{note.materia}</span>
+                    </div>
+                    <div className="bg-blue-500/10 px-2 py-1 rounded-lg">
+                       <span className="text-blue-400 text-[10px] font-black uppercase tracking-wider">Posseduto</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between mt-auto pt-2 border-t border-white/5">
+                    <span className="text-xs text-slate-500">di {note.venditore_nome}</span>
+                    <div className="flex gap-2 items-center">
+                      <a
+                        href={note.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-all hover:scale-105"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" /> Apri
+                      </a>
+                      <div className="flex items-center gap-0.5 bg-white/5 px-2 py-1 rounded-lg">
+                        {[1, 2, 3, 4, 5].map((s) => {
+                          const alreadyRated = userData.ratingsGiven?.includes(note.id) || localRatings[note.id];
+                          const rating = localRatings[note.id] || 0;
+                          return (
+                            <button
+                              key={s}
+                              disabled={!!alreadyRated}
+                              onClick={() => handleRate(note, s)}
+                              className={`${!alreadyRated ? "hover:scale-110 transition-transform" : "cursor-default"}`}
+                            >
+                              <Star className={`w-3.5 h-3.5 ${alreadyRated && s <= rating ? "text-yellow-400 fill-yellow-400" : "text-slate-600"}`} />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mt-10" />
+          </section>
         )}
       </main>
     </div>
