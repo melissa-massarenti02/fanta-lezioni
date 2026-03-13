@@ -77,31 +77,50 @@ export default function TimerPage() {
   }, [running]);
 
   // Award on completion
-useEffect(() => {
-  if (completed && user) {
-    (async () => {
-      const mode = MODES[modeIdx];
-      // Calcoliamo i minuti reali (es. 25 o 50)
-      const minutes = Math.floor(mode.duration / 60);
-      
-      let type: "studio" | "buona_condotta" = "studio";
-      let message = "";
+  useEffect(() => {
+    // Variabile locale per tracciare se il componente è ancora montato
+    let isMounted = true;
 
-      if (modeIdx === 1) { // Modalità Pausa
-        // Per la pausa diamo 1 punto fisso usando la logica studio
-        message = "☕ Pausa completata! +1 punto";
-        await updatePoints(user.uid, "studio", undefined, undefined, 1);
-      } else {
-        // Focus e Focus Lungo: 1 punto per minuto
-        message = `🎉 Sessione completata! +${minutes} punti`;
-        await updatePoints(user.uid, "studio", undefined, undefined, minutes);
-      }
+    if (completed && user) {
+      // 1. Definiamo la funzione asincrona internamente
+      const awardPoints = async () => {
+        try {
+          // Opzionale: Se hai un modo per settare 'completed' a false IMMEDIATAMENTE, fallo qui.
+          // Altrimenti, la logica asincrona prosegue:
+          
+          const mode = MODES[modeIdx];
+          const minutes = Math.floor(mode.duration / 60);
+          
+          let message = "";
 
-      await refreshUserData();
-      setMsg(message);
-    })();
-  }
-}, [completed, user, refreshUserData, modeIdx]);
+          if (modeIdx === 1) { // Modalità Pausa
+            message = "☕ Pausa completata! +1 punto";
+            await updatePoints(user.uid, "studio", undefined, undefined, 1);
+          } else {
+            message = `🎉 Sessione completata! +${minutes} punti`;
+            await updatePoints(user.uid, "studio", undefined, undefined, minutes);
+          }
+
+          // 2. Verifichiamo che il componente sia ancora attivo prima di aggiornare lo stato
+          if (isMounted) {
+            await refreshUserData();
+            setMsg(message);
+            // 3. Resettiamo lo stato 'completed' per "spegnere" l'interruttore
+            setCompleted(false);
+          }
+        } catch (error) {
+          console.error("Errore durante l'assegnazione punti:", error);
+        }
+      };
+
+      awardPoints();
+    }
+
+    // Funzione di cleanup: scatta se il componente viene smontato o lo useEffect si riattiva
+    return () => {
+      isMounted = false;
+    };
+  }, [completed, user, refreshUserData, modeIdx, setCompleted]); // Aggiunto setCompleted alle dipendenze
 
   const handleMode = (idx: number) => {
     setModeIdx(idx);
